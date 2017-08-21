@@ -1,11 +1,25 @@
 package grabber
 
-var Registry registry = registry{
-	grabbers: make(map[string]Grabber),
-}
+import "proxy_grabber/grabber/sites"
+
+var Registry *registry = initRegistry()
 
 type registry struct {
 	grabbers map[string]Grabber
+}
+
+func initRegistry() *registry {
+	return registry{}.Add(
+		"fresh", sites.NewFreshProxy(),
+	).Add(
+		"hidemy", sites.NewHidemy(),
+	).Add(
+		"multiproxy", sites.NewMultiProxy(),
+	).Add(
+		"primespeed", sites.NewPrimeSpeed(),
+	).Add(
+		"therealist", sites.NewThereAList(),
+	)
 }
 
 func (r *registry) Add(name string, grabber Grabber) *registry {
