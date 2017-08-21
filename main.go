@@ -4,23 +4,44 @@ import (
 	"log"
 	"proxy_grabber/grabber"
 	"proxy_grabber/grabber/sites"
+	"runtime"
+	"time"
+
+	"net/http"
+
+	_ "net/http/pprof"
 )
 
 func main() {
-	a := sites.NewPrimeSpeed()
-	c, _ := a.Grab(grabber.HTTP)
+	grabber.Registry.Add(
+		"fresh", sites.NewFreshProxy(),
+	).Add(
+		"hidemy", sites.NewHidemy(),
+	).Add(
+		"multiproxy", sites.NewMultiProxy(),
+	).Add(
+		"primespeed", sites.NewPrimeSpeed(),
+	).Add(
+		"therealist", sites.NewThereAList(),
+	)
+
+	c, err := grabber.Registry.Grab(grabber.HTTP)
+	if err != nil {
+		panic(err)
+	}
+
+	go func() {
+		for {
+			log.Println("Count active goroutine: ", runtime.NumGoroutine())
+			time.Sleep(500 * time.Millisecond)
+		}
+	}()
+
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 
 	for proxy := range c {
 		log.Printf("%v - \x1b[32;1mALIVE\x1b[37;1m", proxy)
 	}
 }
-
-//"http://www.prime-speed.ru/proxy/free-proxy-list/all-working-proxies.php", [+]
-//"http://fineproxy.org/freshproxy", [+]
-
-//"http://www.therealist.ru/proksi/spisok-vsex-rabochix-proksi",
-//"http://multiproxy.org/txt_anon/proxy.txt",
-//"http://spys.ru/en/http-proxy-list/" + POST DATA {
-//	xpp:5
-//	xf5:1
-//}

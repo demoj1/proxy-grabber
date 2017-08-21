@@ -23,7 +23,7 @@ func NewHidemy() *Hidemy {
 }
 
 func (h *Hidemy) Grab(addrType grabber.ProxyType) (chan string, error) {
-	outchan := make(chan string, 50)
+	outchan := make(chan string, 5)
 
 	h.proxyType = addrType
 

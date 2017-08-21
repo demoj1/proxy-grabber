@@ -23,7 +23,7 @@ type GenericRegexp struct {
 }
 
 func (g *GenericRegexp) Grab(proxyType grabber.ProxyType) (chan string, error) {
-	outchan := make(chan string, 50)
+	outchan := make(chan string, 5)
 	g.proxyType = proxyType
 
 	doc, err := goquery.NewDocument(fmt.Sprintf(g.url))
