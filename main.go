@@ -8,11 +8,17 @@ import (
 	"time"
 
 	"net/http"
-
 	_ "net/http/pprof"
 )
 
 func main() {
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
+	pool := grabber.InitPool(10000)
+	pool.Start()
+
 	grabber.Registry.Add(
 		"fresh", sites.NewFreshProxy(),
 	).Add(
@@ -25,23 +31,16 @@ func main() {
 		"therealist", sites.NewThereAList(),
 	)
 
-	c, err := grabber.Registry.Grab(grabber.HTTP)
-	if err != nil {
-		panic(err)
-	}
-
 	go func() {
 		for {
-			log.Println("Count active goroutine: ", runtime.NumGoroutine())
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(time.Second * 1)
+			log.Println(runtime.NumGoroutine())
 		}
 	}()
 
-	go func() {
-		log.Println(http.ListenAndServe("localhost:6060", nil))
-	}()
+	go grabber.Registry.Grab(grabber.HTTP)
 
-	for proxy := range c {
+	for proxy := range pool.Results {
 		log.Printf("%v - \x1b[32;1mALIVE\x1b[37;1m", proxy)
 	}
 }

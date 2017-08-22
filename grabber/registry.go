@@ -1,25 +1,10 @@
 package grabber
 
-import "proxy_grabber/grabber/sites"
-
-var Registry *registry = initRegistry()
+var Registry *registry = &registry{
+	make(map[string]Grabber)}
 
 type registry struct {
 	grabbers map[string]Grabber
-}
-
-func initRegistry() *registry {
-	return registry{}.Add(
-		"fresh", sites.NewFreshProxy(),
-	).Add(
-		"hidemy", sites.NewHidemy(),
-	).Add(
-		"multiproxy", sites.NewMultiProxy(),
-	).Add(
-		"primespeed", sites.NewPrimeSpeed(),
-	).Add(
-		"therealist", sites.NewThereAList(),
-	)
 }
 
 func (r *registry) Add(name string, grabber Grabber) *registry {
@@ -32,17 +17,13 @@ func (r *registry) Delete(name string) *registry {
 	return r
 }
 
-func (r *registry) Grab(proxyType ProxyType) (chan string, error) {
-	var chains []chan string
-
+func (r *registry) Grab(proxyType ProxyType) error {
 	for _, grabber := range r.grabbers {
-		channel, err := grabber.Grab(proxyType)
+		err := grabber.Grab(proxyType)
 		if err != nil {
-			return nil, err
+			return err
 		}
-
-		chains = append(chains, channel)
 	}
 
-	return Merge(chains...), nil
+	return nil
 }
