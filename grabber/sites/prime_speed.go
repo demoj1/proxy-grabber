@@ -15,11 +15,11 @@ type PrimeSpeed struct {
 
 func NewPrimeSpeed() grabber.Grabber {
 	genericRegexp := &GenericRegexp{
-		proxyType: grabber.HTTP,
 		url:       "http://www.prime-speed.ru/proxy/free-proxy-list/all-working-proxies.php",
 		textMatcher: func(doc *goquery.Document) string {
 			return doc.Find("pre").First().Text()
-		}}
+		},
+		out: make(chan string)}
 
 	return genericRegexp
 }

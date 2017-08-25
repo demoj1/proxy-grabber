@@ -15,11 +15,11 @@ type MultiProxy struct {
 
 func NewMultiProxy() grabber.Grabber {
 	genericRegexp := &GenericRegexp{
-		proxyType: grabber.HTTP,
-		url:       "http://multiproxy.org/txt_anon/proxy.txt",
+		url: "http://multiproxy.org/txt_anon/proxy.txt",
 		textMatcher: func(doc *goquery.Document) string {
 			return doc.Text()
-		}}
+		},
+		out: make(chan string)}
 
 	return genericRegexp
 }

@@ -3,7 +3,6 @@ package sites
 import (
 	"fmt"
 	"proxy_grabber/grabber"
-	"sync"
 
 	"regexp"
 
@@ -16,40 +15,26 @@ type TextMatcher func(document *goquery.Document) string
 
 type GenericRegexp struct {
 	url         string
-	proxyType   grabber.ProxyType
 	textMatcher TextMatcher
-
-	sync.WaitGroup
+	out         chan string
 }
 
-func (g *GenericRegexp) Grab(proxyType grabber.ProxyType) (chan string, error) {
-	outchan := make(chan string, 5)
-	g.proxyType = proxyType
-
+func (g *GenericRegexp) Grab() (error, []grabber.Proxy) {
 	doc, err := goquery.NewDocument(fmt.Sprintf(g.url))
 	if err != nil {
-		return nil, err
+		return err, nil
 	}
 
 	text := g.textMatcher(doc)
 	re := regexp.MustCompile(REGEX)
 
+	var res []grabber.Proxy
+
 	matches := re.FindAllString(text, -1)
-
-	g.Add(len(matches))
 	for _, match := range matches {
-		go func(proxy string) {
-			if grabber.CheckAddress(proxy, g.proxyType) {
-				outchan <- proxy
-			}
-			g.Done()
-		}(match)
+		res = append(res, grabber.Proxy{
+			Type:    grabber.HTTP,
+			Address: match})
 	}
-
-	go func() {
-		g.Wait()
-		close(outchan)
-	}()
-
-	return outchan, nil
+	return nil, res
 }

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"proxy_grabber/grabber"
 	"strconv"
-	"sync"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -12,77 +11,66 @@ import (
 type Hidemy struct {
 	url       string
 	proxyType grabber.ProxyType
-	sync.WaitGroup
+	out       chan string
 }
 
 func NewHidemy() *Hidemy {
 	return &Hidemy{
-		url:       "https://hidemy.name/ru/proxy-list/?maxtime=1000&anon=234%v#list",
-		proxyType: grabber.HTTP,
+		url: "https://hidemy.name/ru/proxy-list/?maxtime=1000&anon=234%v#list",
+		out: make(chan string),
 	}
 }
 
-func (h *Hidemy) Grab(addrType grabber.ProxyType) (chan string, error) {
-	outchan := make(chan string, 5)
-
-	h.proxyType = addrType
-
+func (h *Hidemy) Grab() (error, []grabber.Proxy) {
 	doc, err := goquery.NewDocument(fmt.Sprintf(h.url, ""))
 	if err != nil {
-		return nil, err
+		return err, nil
 	}
 
 	pagesCount, err := strconv.Atoi(doc.Find(".proxy__pagination a").Last().Text())
 	if err != nil {
-		return nil, err
+		return err, nil
 	}
-	h.Add(pagesCount)
 
+	var proxyList []grabber.Proxy
 	for i := 0; i <= pagesCount; i++ {
-		go func(number int) {
-			doc, err = goquery.NewDocument(fmt.Sprintf(h.url, "&start="+strconv.Itoa(number*64)))
-			if err != nil {
-				panic(err)
-			}
+		doc, err = goquery.NewDocument(fmt.Sprintf(h.url, "&start="+strconv.Itoa(i*64)))
+		if err != nil {
+			panic(err)
+		}
 
-			h.getProxyList(doc, outchan)
-			h.Done()
-		}(i)
+		list := h.getProxyList(doc)
+		proxyList = append(proxyList, list...)
 	}
 
-	go func() {
-		h.Wait()
-		close(outchan)
-	}()
-
-	return outchan, nil
+	return nil, proxyList
 }
 
-func (h *Hidemy) getProxyList(doc *goquery.Document, in chan string) {
+func (h *Hidemy) getProxyList(doc *goquery.Document) []grabber.Proxy {
+	var proxyList []grabber.Proxy
+
 	doc.Find("table.proxy__t tbody tr").Each(func(i int, s *goquery.Selection) {
-		go func(s *goquery.Selection) {
-			h.Add(1)
-			tds := s.Find("td").Nodes
+		tds := s.Find("td").Nodes
 
-			address := tds[0].LastChild.Data + ":" + tds[1].LastChild.Data
-			typeNodeData := tds[4].LastChild.Data
+		address := tds[0].LastChild.Data + ":" + tds[1].LastChild.Data
+		typeNodeData := tds[4].LastChild.Data
 
-			var proxyType grabber.ProxyType
-			switch typeNodeData {
-			case "HTTP", "HTTP, HTTPS":
-				proxyType = grabber.HTTP
-			case "HTTPS":
-				proxyType = grabber.HTTPS
-			}
+		var proxyType grabber.ProxyType
+		switch typeNodeData {
+		case "HTTP", "HTTP, HTTPS":
+			proxyType = grabber.HTTP
+		case "HTTPS":
+			proxyType = grabber.HTTPS
+		}
 
-			if proxyType != h.proxyType {
-				return
-			}
-
-			if grabber.CheckAddress(address, proxyType) {
-				in <- address
-			}
-			h.Done()
-		}(s)
+		proxyList = append(proxyList, grabber.Proxy{
+			Address: address,
+			Type:    proxyType})
 	})
+
+	return proxyList
+}
+
+func (h *Hidemy) ProxyChan() chan string {
+	return h.out
 }

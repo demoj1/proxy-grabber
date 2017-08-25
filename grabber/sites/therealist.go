@@ -15,11 +15,11 @@ type ThereAList struct {
 
 func NewThereAList() grabber.Grabber {
 	genericRegexp := &GenericRegexp{
-		proxyType: grabber.HTTP,
-		url:       "http://www.therealist.ru/proksi/spisok-vsex-rabochix-proksi",
+		url: "http://www.therealist.ru/proksi/spisok-vsex-rabochix-proksi",
 		textMatcher: func(doc *goquery.Document) string {
 			return doc.Find("pre").First().Text()
-		}}
+		},
+		out: make(chan string)}
 
 	return genericRegexp
 }

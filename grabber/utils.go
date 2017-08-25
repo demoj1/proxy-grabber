@@ -2,28 +2,32 @@ package grabber
 
 import (
 	"fmt"
+	"io"
+	"io/ioutil"
 	"proxy_grabber/proxy_http_client"
 	"strings"
-	"sync"
 )
 
-func CheckAddress(address string, proxyType ProxyType) bool {
-	switch proxyType {
+func CheckAddress(proxy Proxy) bool {
+	switch proxy.Type {
 	case HTTP, HTTPS:
 		client := proxy_http_client.GetClient(fmt.Sprintf(
 			"%v://%v",
-			strings.ToLower(proxyType.String()),
-			address))
+			strings.ToLower(proxy.Type.String()),
+			proxy.Address))
 
-		resp, err := client.Head("http://blank.org/")
-		defer func() {
-			if resp != nil {
-				resp.Body.Close()
-			}
-		}()
+		resp, err := client.Get("http://blank.org/")
 		if err != nil {
 			return false
 		}
+		defer func() {
+			if resp == nil {
+				return
+			}
+
+			io.Copy(ioutil.Discard, resp.Body)
+			resp.Body.Close()
+		}()
 
 		if s := resp.StatusCode / 100; s == 2 || s == 3 {
 			return true
@@ -31,26 +35,4 @@ func CheckAddress(address string, proxyType ProxyType) bool {
 	}
 
 	return false
-}
-
-func Merge(cs ...chan string) chan string {
-	var wg sync.WaitGroup
-	out := make(chan string)
-
-	output := func(c <-chan string) {
-		for n := range c {
-			out <- n
-		}
-		wg.Done()
-	}
-	wg.Add(len(cs))
-	for _, c := range cs {
-		go output(c)
-	}
-
-	go func() {
-		wg.Wait()
-		close(out)
-	}()
-	return out
 }
