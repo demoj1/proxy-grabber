@@ -19,7 +19,7 @@ type registry struct {
 }
 
 const (
-	STACK_MAX_SIZE = 500
+	STACK_MAX_SIZE = 1000
 )
 
 var Registry *registry = &registry{
@@ -54,6 +54,33 @@ func (r *registry) StartLoop(updateInterval time.Duration) {
 		}
 	}(r)
 }
+func paginateList(registry *registry, page int) []Proxy {
+	var proxy []Proxy
+	if len(registry.ProxyList) < page*STACK_MAX_SIZE/2 {
+		proxy = registry.ProxyList
+		page = 1
+	} else {
+		proxy = registry.ProxyList[page : page+STACK_MAX_SIZE/2]
+	}
+	return proxy
+}
+func (r *registry) filtering(wg *sync.WaitGroup, proxy []Proxy) {
+	wg.Add(len(proxy))
+	for _, p := range proxy {
+		go r.task(p, wg)
+	}
+	wg.Wait()
+}
+func (r *registry) task(proxy Proxy, wg *sync.WaitGroup) {
+	if CheckAddress(proxy) {
+		r.WorkListMutex.Lock()
+		proxy.Alive = true
+		r.WorkProxy.Push(proxy)
+		r.WorkListMutex.Unlock()
+	}
+
+	wg.Done()
+}
 func (r *registry) clearStack() {
 	r.WorkListMutex.Lock()
 	if r.WorkProxy.Len() > STACK_MAX_SIZE {
@@ -68,35 +95,6 @@ func (r *registry) clearStack() {
 	}
 	r.WorkListMutex.Unlock()
 }
-func (r *registry) filtering(wg *sync.WaitGroup, proxy []Proxy) {
-	wg.Add(len(proxy))
-	for _, p := range proxy {
-		go r.task(p, wg)
-	}
-	wg.Wait()
-}
-func paginateList(registry *registry, page int) []Proxy {
-	var proxy []Proxy
-	if len(registry.ProxyList) < page*STACK_MAX_SIZE/2 {
-		proxy = registry.ProxyList
-		page = 1
-	} else {
-		proxy = registry.ProxyList[page : page+STACK_MAX_SIZE/2]
-	}
-	return proxy
-}
-
-func (r *registry) task(proxy Proxy, wg *sync.WaitGroup) {
-	if CheckAddress(proxy) {
-		r.WorkListMutex.Lock()
-		proxy.Alive = true
-		r.WorkProxy.Push(proxy)
-		r.WorkListMutex.Unlock()
-	}
-
-	wg.Done()
-}
-
 func (r *registry) updateProxyList(updateInterval time.Duration) {
 	updateProxyListTicker := time.NewTicker(updateInterval)
 
